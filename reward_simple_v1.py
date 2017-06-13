@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import time
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -113,7 +113,7 @@ def xavier_array_init(array):
         array[i] = np.random.uniform(-1 * epsilon, epsilon, 1)
     return array
 
-def simple_forward_prop(data, labels):
+def simple_forward_prop(data, labels, batch_size):
     """
     Forward and backward propagation for a two-layer sigmoidal network
 
@@ -163,8 +163,10 @@ def simple_forward_prop(data, labels):
     print W2
     
     error_count = 0
-    general_count = 0
+    batch_count = 0
+    error_array = []
 
+    start_time = time.time()
     for iter_num in range(m):
         
         x0 = data[iter_num, :]
@@ -190,28 +192,12 @@ def simple_forward_prop(data, labels):
         error = np.power(np.abs(y0 - yHat), power_constant)
         reward = 1 - error
         
-        if error > 0:
-            error_count += 1
-        general_count += 1
-
-        # print "yHat ", yHat
-        print "reward", reward, "error", error, "running average error rate", 1.0 * error_count / general_count
-        
-        # print "h2 :", h2
-        # print "z2 :", z2
-        
-        # print "z1 :", z1
-        # print "h1 :", h1
-        # print "x1 : ", x1
-        
-        # print "x1 shape :", x1.shape
-        # print "h1 shape :", h1.shape
-        # print ""
+        if error > 0: error_count += 1
+        batch_count += 1
 
         # Reward signal propagation (single value)
 
         # W2 update
-
         for j in range(W2.shape[0]):
             W2[j] += row * reward * (yHat - h2) * x1[0, j] + lamb * row * (1 - reward) * (1 - yHat - h2) * x1[0, j]
             # b2[j] += row * reward * (yHat - h2) * x1[j] + lamb * row * (1 - reward) * (1 - yHat - h2) * x1[j]
@@ -221,17 +207,20 @@ def simple_forward_prop(data, labels):
             for j in range(W1.shape[1]):
                 W1[i, j] += row * reward * (x1[0, i] - h1[0, i]) * x0[0, j] + lamb * row * (1 - reward) * (1 - x1[0, i] - h1[0, i]) * x0[0, j]
 
+        if batch_count == batch_size:
+            error_array.append(1.0 * error_count / batch_count)
+            batch_count = 0
+            error_count = 0
+
+
+    print "Training took " + str(time.time() - start_time) + " seconds"
     print "post process W1"
     print W1
-
-
-
-
-
-
-
-
-
+    axis = np.arange(len(error_array))
+    plt.figure()
+    plt.plot(axis, error_array,'r', label = 'batch error')
+    plt.legend()
+    plt.show()
 
 def sanity_check():
     """
@@ -254,14 +243,16 @@ def sanity_check():
         forward_backward_prop(data, labels, params, dimensions), params)
 
 
-
 if __name__ == "__main__":
-    batch_size = 100
-    option = 2
+    batch_size = 50
+    total_iter_num = 100
+
+    option = 1
     sd_range = 3
 
+    print "starting data generation"
+    batch_x, batch_y = generate_batch(batch_size * total_iter_num, option, sd_range)
+    print "done with data generation"
 
-    batch_x, batch_y = generate_batch(batch_size, option, sd_range)
-    
-    simple_forward_prop(batch_x, batch_y)
+    simple_forward_prop(batch_x, batch_y, batch_size)
 
