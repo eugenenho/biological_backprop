@@ -3,6 +3,9 @@ import time
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from sklearn.datasets import make_gaussian_quantiles
+from sklearn.datasets import make_classification
+from sklearn.datasets import make_blobs
 
 def sigmoid(x):
     """
@@ -24,7 +27,6 @@ def sigmoid(x):
     return s
 
 def generate_batch(batch_size, option, sd_range):
-
 
     if (option == 1):
 
@@ -82,6 +84,24 @@ def generate_batch(batch_size, option, sd_range):
         print batch_x
         return batch_x, batch_y
 
+def generate_nonlin_data(num_samples):
+    plt.subplot(326)
+    plt.title("Gaussian divided into three quantiles", fontsize='small')
+    X1, Y1 = make_gaussian_quantiles(mean = (1, 1), cov = 5, n_samples=num_samples, n_features=2, n_classes=2)
+    print X1
+    print Y1
+    plt.scatter(X1[:, 0], X1[:, 1], marker='o', c=Y1)
+    plt.show()
+    return X1, Y1
+
+def generate_lin_data(num_samples):
+    plt.subplot(325)
+    plt.title("Three blobs", fontsize='small')
+    X1, Y1 = make_blobs(n_samples = num_samples, n_features=2, centers=2, random_state=1)
+    plt.scatter(X1[:, 0], X1[:, 1], marker='o', c=Y1)
+    plt.show()
+    return X1, Y1
+
 def xavier_mat_init(matrix):
     """
     Does Xavier initialization for a given matrix.
@@ -113,7 +133,7 @@ def xavier_array_init(array):
         array[i] = np.random.uniform(-1 * epsilon, epsilon, 1)
     return array
 
-def simple_forward_prop(data, labels, batch_size):
+def simple_forward_prop(data, labels, hidden_dim, batch_size):
     """
     Forward and backward propagation for a two-layer sigmoidal network
 
@@ -145,8 +165,10 @@ def simple_forward_prop(data, labels, batch_size):
     lamb = 0.01
 
     # Set up parameters
-    W1 = np.ones((n, n))
-    W2 = np.ones(n)
+    W1 = np.zeros((n, hidden_dim))
+    W2 = np.zeros(hidden_dim)
+    b1 = np.zeros(hidden_dim)
+    b2 = np.zeros(1)
     
     # Initialization
     
@@ -157,6 +179,8 @@ def simple_forward_prop(data, labels, batch_size):
     # Xavier
     W1 = xavier_mat_init(W1)
     W2 = xavier_array_init(W2)
+    b1 = xavier_array_init(b1)
+    b2 = xavier_array_init(b2)
     print "W1 pre learning :"
     print W1
     print "W2 pre learning :"
@@ -180,11 +204,11 @@ def simple_forward_prop(data, labels, batch_size):
         # print "W2 shape[0]: ", W2.shape[0]
 
         # Forward prop
-        z1 = np.dot(x0, W1) # + b1
+        z1 = np.dot(x0, W1) + b1
         h1  = sigmoid(z1)
         x1 = np.random.binomial(1, h1) # roll dice based on h
 
-        z2 = np.dot(x1, W2) # + b2
+        z2 = np.dot(x1, W2) + b2
         h2 = sigmoid(z2)
         yHat = np.random.binomial(1, h2)
 
@@ -200,18 +224,18 @@ def simple_forward_prop(data, labels, batch_size):
         # W2 update
         for j in range(W2.shape[0]):
             W2[j] += row * reward * (yHat - h2) * x1[0, j] + lamb * row * (1 - reward) * (1 - yHat - h2) * x1[0, j]
-            # b2[j] += row * reward * (yHat - h2) * x1[j] + lamb * row * (1 - reward) * (1 - yHat - h2) * x1[j]
+            b2 += row * reward * (yHat - h2) * x1[0, j] + lamb * row * (1 - reward) * (1 - yHat - h2) * x1[0, j]
 
         # W1 update
-        for i in range(W1.shape[0]):    
-            for j in range(W1.shape[1]):
-                W1[i, j] += row * reward * (x1[0, i] - h1[0, i]) * x0[0, j] + lamb * row * (1 - reward) * (1 - x1[0, i] - h1[0, i]) * x0[0, j]
-
+        for i in range(W1.shape[0]):
+            for j in range(W1.shape[1]):    
+                W1[i, j] += row * reward * (x1[0, j] - h1[0, j]) * x0[0, i] + lamb * row * (1 - reward) * (1 - x1[0, j] - h1[0, j]) * x0[0, i]
+                b1[j] += row * reward * (x1[0, j] - h1[0, j]) * x0[0, i] + lamb * row * (1 - reward) * (1 - x1[0, j] - h1[0, j]) * x0[0, i]
+                
         if batch_count == batch_size:
             error_array.append(1.0 * error_count / batch_count)
             batch_count = 0
             error_count = 0
-
 
     print "Training took " + str(time.time() - start_time) + " seconds"
     print "post process W1"
@@ -245,14 +269,21 @@ def sanity_check():
 
 if __name__ == "__main__":
     batch_size = 50
-    total_iter_num = 100
+    total_iter_num = 1000
 
     option = 1
     sd_range = 3
+    hidden_dim = 20
 
+    # data_x, data_y = generate_nonlin_data(batch_size * total_iter_num)
+    
+    data_x, data_y = generate_lin_data(batch_size * total_iter_num)
+    simple_forward_prop(data_x, data_y, hidden_dim, batch_size)
+
+"""
     print "starting data generation"
-    batch_x, batch_y = generate_batch(batch_size * total_iter_num, option, sd_range)
+    data_x, data_y = generate_batch(batch_size * total_iter_num, option, sd_range)
     print "done with data generation"
-
-    simple_forward_prop(batch_x, batch_y, batch_size)
+"""
+    
 
