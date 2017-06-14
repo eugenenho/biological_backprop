@@ -52,7 +52,7 @@ def generate_batch(batch_size, option, sd_range):
         print batch_x
         return batch_x, batch_y
 
-    else:
+    elif (option == 2):
         data_x = []
         data_y = []
 
@@ -84,23 +84,69 @@ def generate_batch(batch_size, option, sd_range):
         print batch_x
         return batch_x, batch_y
 
-def generate_nonlin_data(num_samples):
+    else:
+
+        data_x = []
+        data_y = []
+
+        for i in range(batch_size):
+            samp1 = np.random.random_integers(-10, 10)
+            samp2 = np.random.random_integers(-10, 10)
+
+            #print samp1
+            #print samp2 
+
+            data_x.append((samp1, samp2))
+            plt.scatter(samp1, samp2)
+            label = np.int32(samp2 > samp1 * samp1)
+            data_y.append(label)
+
+
+        batch_x = np.matrix(data_x)
+        batch_y =  np.array(np.int32(data_y))
+
+        print "batch_x shape ", batch_x.shape
+        print batch_x
+        print batch_y
+
+        plt.figure()
+        plt.title("Quadratic dataset", fontsize='small')
+        plt.scatter(batch_x[:, 0], batch_x[:, 1], marker='.', c=batch_y)
+        plt.show()
+       
+        print batch_x
+        return batch_x, batch_y
+    
+
+def generate_nonlin_data(num_features, num_samples):
     plt.subplot(326)
     plt.title("Gaussian divided into three quantiles", fontsize='small')
-    X1, Y1 = make_gaussian_quantiles(mean = (1, 1), cov = 5, n_samples=num_samples, n_features=2, n_classes=2)
+    X1, Y1 = make_gaussian_quantiles(mean = (1, 1), cov = 5, n_samples=num_samples, n_features=num_features, n_classes=2)
     print X1
     print Y1
-    plt.scatter(X1[:, 0], X1[:, 1], marker='o', c=Y1)
+    plt.scatter(X1[:, 0], X1[:, 1], marker='.', c=Y1)
     plt.show()
     return X1, Y1
 
-def generate_lin_data(num_samples):
+def generate_lin_data(num_features, num_samples):
     plt.subplot(325)
-    plt.title("Three blobs", fontsize='small')
-    X1, Y1 = make_blobs(n_samples = num_samples, n_features=2, centers=2, random_state=1)
-    plt.scatter(X1[:, 0], X1[:, 1], marker='o', c=Y1)
+    plt.title("Two blobs", fontsize='small')
+    X1, Y1 = make_blobs(n_samples = num_samples, n_features=num_features, centers=[(10, 10), (-10,-10)], cluster_std = num_complexity, random_state=1)
+    plt.scatter(X1[:, 0], X1[:, 1], marker='.', c=Y1)
     plt.show()
     return X1, Y1
+
+def generate_quad_data(num_features, num_samples):
+    X1 = np.random.uniform(-10, 10, (num_samples, num_features))
+    squared = X1[:, 0]**2
+    Y1 = np.int32(squared < X1[:, 1])
+    plt.figure()
+    plt.title("Quadratic dataset", fontsize='small')
+    plt.scatter(X1[:, 0], X1[:, 1], marker='.', c=Y1)
+    plt.show()
+    return X1, Y1
+
+
 
 def xavier_mat_init(matrix):
     """
@@ -185,6 +231,11 @@ def simple_forward_prop(data, labels, hidden_dim, batch_size):
     print W1
     print "W2 pre learning :"
     print W2
+    print "b1 pre learning :"
+    print b1
+    print "b2 pre learning :"
+    print b2
+    
     
     error_count = 0
     batch_count = 0
@@ -195,13 +246,6 @@ def simple_forward_prop(data, labels, hidden_dim, batch_size):
         
         x0 = data[iter_num, :]
         y0 = labels[iter_num]
-
-        # print "x0 shape :", x0.shape
-        # print "yo shape :", y0.shape
-        # print "y0 :", y0
-        # print "W1 shape: ", W1.shape
-        # print "W2 shape: ", W2.shape
-        # print "W2 shape[0]: ", W2.shape[0]
 
         # Forward prop
         z1 = np.dot(x0, W1) + b1
@@ -238,8 +282,11 @@ def simple_forward_prop(data, labels, hidden_dim, batch_size):
             error_count = 0
 
     print "Training took " + str(time.time() - start_time) + " seconds"
-    print "post process W1"
-    print W1
+    print "post process b1"
+    print b1
+    print "post process b2"
+    print b2
+
     axis = np.arange(len(error_array))
     plt.figure()
     plt.plot(axis, error_array,'r', label = 'batch error')
@@ -268,22 +315,31 @@ def sanity_check():
 
 
 if __name__ == "__main__":
+    
+    # Model design parameters
+    n = 2
+
     batch_size = 50
     total_iter_num = 1000
+    m = batch_size * total_iter_num
 
-    option = 1
+    hidden_dim = 10
+
+    # Data generation parameters
+    option = 3
     sd_range = 3
-    hidden_dim = 20
+    num_complexity = 4 # SD for blobs for (10, 10), (-10, -10)
 
-    # data_x, data_y = generate_nonlin_data(batch_size * total_iter_num)
+    # data_x, data_y = generate_nonlin_data(n, m)
+    # data_x, data_y = generate_lin_data(n, m)
+    data_x, data_y = generate_quad_data(n, m)
     
-    data_x, data_y = generate_lin_data(batch_size * total_iter_num)
+    print "starting data generation"
+    #data_x, data_y = generate_batch(batch_size * total_iter_num, option, sd_range)
+    print "done with data generation"
+    print data_x.shape
+    print data_y.shape
     simple_forward_prop(data_x, data_y, hidden_dim, batch_size)
 
-"""
-    print "starting data generation"
-    data_x, data_y = generate_batch(batch_size * total_iter_num, option, sd_range)
-    print "done with data generation"
-"""
     
 
