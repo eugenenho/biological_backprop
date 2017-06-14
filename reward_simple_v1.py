@@ -7,6 +7,23 @@ from sklearn.datasets import make_gaussian_quantiles
 from sklearn.datasets import make_classification
 from sklearn.datasets import make_blobs
 
+# Model design parameters
+n = 2
+
+batch_size = 50
+total_iter_num = 500
+m = batch_size * total_iter_num
+
+hidden_dim = 20
+
+# Data generation parameters
+option = 3
+sd_range = 3
+num_complexity = 6 # SD for blobs for (10, 10), (-10, -10)
+
+# Other parameters
+threshold = 0.05
+
 def sigmoid(x):
     """
     Compute the sigmoid function for the input here.
@@ -128,17 +145,17 @@ def generate_nonlin_data(num_features, num_samples):
     plt.show()
     return X1, Y1
 
-def generate_lin_data(num_features, num_samples):
-    plt.subplot(325)
-    plt.title("Two blobs", fontsize='small')
-    X1, Y1 = make_blobs(n_samples = num_samples, n_features=num_features, centers=[(10, 10), (-10,-10)], cluster_std = num_complexity, random_state=1)
-    plt.scatter(X1[:, 0], X1[:, 1], marker='.', c=Y1)
-    plt.show()
+def generate_lin_data(num_features, num_samples, num_complexity):
+    # plt.subplot(325)
+    # plt.title("Two blobs", fontsize='small')
+    X1, Y1 = make_blobs(n_samples = num_samples, n_features=num_features, centers=[(10,) * num_features, (-10,) * num_features], cluster_std = num_complexity, random_state=1)
+    # plt.scatter(X1[:, 0], X1[:, 1], marker='.', c=Y1)
+    # plt.show()
     return X1, Y1
 
 def generate_quad_data(num_features, num_samples):
     X1 = np.random.uniform(-10, 10, (num_samples, num_features))
-    squared = X1[:, 0]**2
+    squared = 0.1 * X1[:, 0]**2
     Y1 = np.int32(squared < X1[:, 1])
     plt.figure()
     plt.title("Quadratic dataset", fontsize='small')
@@ -146,6 +163,14 @@ def generate_quad_data(num_features, num_samples):
     plt.show()
     return X1, Y1
 
+def generate_xor_data(num_features, num_samples):
+    X1 = np.random.uniform(-10, 10, (num_samples, num_features))
+    Y1 = np.int32(X1[:, 1] * X1[:, 0] < 0)
+    plt.figure()
+    plt.title("Xor dataset", fontsize='small')
+    plt.scatter(X1[:, 0], X1[:, 1], marker='.', c=Y1)
+    #plt.show()
+    return X1, Y1
 
 
 def xavier_mat_init(matrix):
@@ -197,18 +222,18 @@ def simple_forward_prop(data, labels, hidden_dim, batch_size):
     data = np.matrix(data)
     labels = np.array(labels)
 
-    print data
+    #print data
 
     m = data.shape[0]
     n = data.shape[1]
 
-    print data.shape, m, n
-    print labels.shape
+    #print data.shape, m, n
+    #print labels.shape
 
     # Hyperparameters
     power_constant = 1.0/3
-    row = 0.5
-    lamb = 0.01
+    row = 0.9  #0.5
+    lamb = 0.001 #0.01
 
     # Set up parameters
     W1 = np.zeros((n, hidden_dim))
@@ -227,14 +252,14 @@ def simple_forward_prop(data, labels, hidden_dim, batch_size):
     W2 = xavier_array_init(W2)
     b1 = xavier_array_init(b1)
     b2 = xavier_array_init(b2)
-    print "W1 pre learning :"
-    print W1
-    print "W2 pre learning :"
-    print W2
-    print "b1 pre learning :"
-    print b1
-    print "b2 pre learning :"
-    print b2
+    # print "W1 pre learning :"
+    # print W1
+    # print "W2 pre learning :"
+    # print W2
+    # print "b1 pre learning :"
+    # print b1
+    # print "b2 pre learning :"
+    # print b2
     
     
     error_count = 0
@@ -281,17 +306,35 @@ def simple_forward_prop(data, labels, hidden_dim, batch_size):
             batch_count = 0
             error_count = 0
 
-    print "Training took " + str(time.time() - start_time) + " seconds"
-    print "post process b1"
-    print b1
-    print "post process b2"
-    print b2
+    # print "Training took " + str(time.time() - start_time) + " seconds"
+    # print "post process b1"
+    # print b1
+    # print "post process b2"
+    # print b2
 
     axis = np.arange(len(error_array))
+    
+    # find the training completion point. return the batch number it took to reach completion point
+    # return find_completion_point(error_array)
+
     plt.figure()
     plt.plot(axis, error_array,'r', label = 'batch error')
     plt.legend()
     plt.show()
+
+    plot_boundary(data, labels, W1, W2, b1, b2)
+
+
+
+def find_completion_point(error_array):
+    array_length = len(error_array)
+
+    # Iterate over error_array in reverse order
+    for index in range(array_length - 1, -1, -1):
+        if (error_array[index] > threshold):
+            return index
+    
+    return 0        
 
 def sanity_check():
     """
@@ -314,25 +357,120 @@ def sanity_check():
         forward_backward_prop(data, labels, params, dimensions), params)
 
 
+def complexity_run(sd_low, sd_high):
+
+    # Iterate over complexity
+    results = []
+    
+    for sd in range(sd_high, sd_low - 1, -1):
+        
+        
+        # Generate data with given complexity
+        data_x, data_y = generate_lin_data(n, m, sd)
+
+        # Iterate over 10 runs
+        indiv_run_results = []
+        for i in range(10):
+            indiv_run_results.append(simple_forward_prop(data_x, data_y, hidden_dim, batch_size))
+
+        # Save average to results
+        print "on complexity: ", sd, "and results:", indiv_run_results
+        results.append(np.mean(indiv_run_results))
+
+
+    # Plot results
+    plt.figure()
+    plt.title("Complexity results", fontsize='small')
+    plt.plot(range(sd_high, sd_low - 1, -1), results, marker='.')
+    plt.show()
+    
+def dimension_run(dim_low, dim_high, step_size):
+
+    # Iterate over complexity
+    results = []
+    
+    for dim in range(dim_low, dim_high + 1, step_size):
+        
+        # Generate data with given complexity
+        data_x, data_y = generate_lin_data(dim, m, num_complexity)
+
+        # Iterate over 10 runs
+        indiv_run_results = []
+        for i in range(10):
+            indiv_run_results.append(simple_forward_prop(data_x, data_y, hidden_dim, batch_size))
+
+        # Save average to results
+        print "on dim: ", dim, "and results:", indiv_run_results
+        results.append(np.mean(indiv_run_results))
+
+    # Plot results
+    plt.figure()
+    plt.title("Dimension results", fontsize='small')
+    plt.plot(range(dim_low, dim_high + 1, step_size), results, marker='.')
+    plt.show()
+
+def net_predict(data, W1, W2, b1, b2):
+
+    print "net_predict here"
+
+    print "data"
+    print data
+
+    print "W1"
+    print W1
+
+    print "W2"
+    print W2
+    # Forward prop
+    z1 = np.dot(data, W1) + b1 # [m x n x n x h] = [m x h]
+    h1  = sigmoid(z1)   # [m x h]
+    x1 = np.int32(h1 >= 0.5) # [m x h]
+    # x1 = h1
+
+    z2 = np.dot(x1, W2) + b2 # [m x h x h x 1]
+    h2 = sigmoid(z2) # [m x 1]
+    yHat = np.int32(h2 >= 0.5) # [m x 1]
+
+    return yHat
+
+
+def plot_boundary(X, Y, W1, W2, b1, b2):
+    # create a mesh to plot in
+    h = .02
+    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                         np.arange(y_min, y_max, h))
+
+    # Plot the decision boundary. For that, we will assign a color to each
+    # point in the mesh [x_min, m_max]x[y_min, y_max].
+    fig, ax = plt.subplots()
+    Z = net_predict(np.c_[xx.ravel(), yy.ravel()], W1, W2, b1, b2)
+
+    print xx
+    print yy
+
+    # Put the result into a color plot
+    Z = Z.reshape(xx.shape)
+    print Z
+    print np.sum(Z)
+    ax.contourf(xx, yy, Z, cmap=plt.cm.Paired)
+    ax.axis('off')
+
+    # Plot also the training points
+    # ax.scatter(X[:, 0], X[:, 1], c=Y, marker='.')#, cmap=plt.cm.Paired)
+    ax.set_title('Perceptron')
+    plt.show()
+
 if __name__ == "__main__":
     
-    # Model design parameters
-    n = 2
-
-    batch_size = 50
-    total_iter_num = 1000
-    m = batch_size * total_iter_num
-
-    hidden_dim = 10
-
-    # Data generation parameters
-    option = 3
-    sd_range = 3
-    num_complexity = 4 # SD for blobs for (10, 10), (-10, -10)
+    #complexity_run(3, 10)
+    #dimension_run(2, 10, 1)
 
     # data_x, data_y = generate_nonlin_data(n, m)
-    # data_x, data_y = generate_lin_data(n, m)
+    # data_x, data_y = generate_lin_data(n, m, num_complexity)
     data_x, data_y = generate_quad_data(n, m)
+    # data_x, data_y = generate_xor_data(n, m)
     
     print "starting data generation"
     #data_x, data_y = generate_batch(batch_size * total_iter_num, option, sd_range)
@@ -340,6 +478,3 @@ if __name__ == "__main__":
     print data_x.shape
     print data_y.shape
     simple_forward_prop(data_x, data_y, hidden_dim, batch_size)
-
-    
-
